@@ -141,3 +141,44 @@ para ninguém perder tempo pelo caminho errado.
    `evidencias/verificacao-N.txt`.
 4. Cada integrante recebe uma cópia por e-mail. **Guardem esse e-mail**: é o
    comprovante.
+
+---
+
+## Nosso compilador
+
+### Entrega 1: tabela de tokens
+
+O analisador léxico (`mplc/lexico.py`) é escrito à mão: um laço lê o fonte da
+esquerda para a direita e, olhando o caractere atual, escolhe um ramo. Cada
+ramo é um autômato pequeno que avança até o fim do token. A coluna de um token
+é `indice - inicio_da_linha + 1`.
+
+| Tipo | Expressão regular | Observação |
+|---|---|---|
+| `ID` | `[A-Za-z_][A-Za-z0-9_]*` | só ASCII; se o lexema for palavra reservada, o tipo é o da linha abaixo |
+| palavras reservadas | `funcao` `retorne` `se` `senao` `enquanto` `escreva` | tipos `FUNCAO` `RETORNE` `SE` `SENAO` `ENQUANTO` `ESCREVA` |
+| tipos | `inteiro` `real` `logico` `texto` `vazio` | `TIPO_INTEIRO` `TIPO_REAL` `TIPO_LOGICO` `TIPO_TEXTO` `TIPO_VAZIO` |
+| `E` `OU` `NAO` | `e` `ou` `nao` | operadores lógicos escritos como palavra |
+| `LOGICO` | `verdadeiro\|falso` | reconhecido pelo mesmo ramo do `ID` |
+| `INTEIRO` | `[0-9]+` | |
+| `REAL` | `[0-9]+\.[0-9]+` | o ramo do número só aceita o ponto se vier dígito depois |
+| `TEXTO` | `"([^"\\\n]\|\\[nt"\\])*"` | o lexema guarda as aspas e os escapes como estão no fonte |
+| `IGUAL` `DIFERENTE` `MENOR_IGUAL` `MAIOR_IGUAL` | `==` `!=` `<=` `>=` | testados **antes** dos símbolos de um caractere |
+| `MAIS` `MENOS` `VEZES` `DIVIDE` `RESTO` | `+` `-` `*` `/` `%` | |
+| `MENOR` `MAIOR` `ATRIBUI` | `<` `>` `=` | |
+| `ABRE_PAR` `FECHA_PAR` `ABRE_CHAVE` `FECHA_CHAVE` `VIRGULA` `PONTO_VIRGULA` | `(` `)` `{` `}` `,` `;` | |
+| `FIM_ARQUIVO` | fim do fonte | lexema vazio; linha seguinte e coluna 1 se o fonte termina em quebra de linha, senão logo depois do último caractere |
+
+Não geram token: espaço, `\t`, `\r`, `\n`, `//[^\n]*` e `/\*` até o primeiro
+`*/` (o comentário de bloco não aninha).
+
+Os erros léxicos, e para onde cada um aponta:
+
+| Erro | Exemplo | Posição relatada |
+|---|---|---|
+| escape inválido | `"a\qb"` | a `\` |
+| texto não fechado na linha | `"sem fim` | a `"` de abertura |
+| comentário de bloco não fechado | `/* ...` | o `/` de abertura |
+| real sem dígito depois do ponto | `3.` | o `.` |
+| real sem dígito antes do ponto | `.5` | o `.` |
+| caractere fora da linguagem | `@`, `!` sozinho, `ç` | o próprio caractere |
