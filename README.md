@@ -237,3 +237,38 @@ olhar um token a mais: `ID "("` é chamada, e qualquer outro é atribuição.
 **Onde fica o erro sintático:** no token que apareceu no lugar do esperado.
 Faltando o `;` no fim de uma linha, o erro fica no primeiro token da linha
 seguinte.
+
+### Entrega 3: estrutura dos escopos
+
+Os escopos formam uma árvore: cada escopo é um dicionário (`nome -> Simbolo`)
+com um ponteiro para o escopo pai (`Escopo` em `mplc/semantica.py`). A busca
+de um nome começa no escopo atual e sobe pela cadeia de pais; o primeiro que achar
+vence, e é isso que faz o sombreamento sem nenhum código extra. Ao fechar um
+bloco, o analisador só volta o ponteiro `atual` para o pai, então a variável de
+dentro some da busca e a de fora volta. O escopo fechado **não** é apagado:
+todos ficam numa lista, na ordem em que abriram, porque o `--tabela` imprime
+todos e a Entrega 4 vai precisar deles para dar uma posição de memória a cada
+variável.
+
+Escolhemos a árvore de dicionários, e não uma pilha que descarta o escopo ao
+fechar, por esse motivo: a pilha responde "o que é visível agora", mas perde o
+escopo depois que ele fecha. O dicionário dá busca em tempo constante dentro
+de cada escopo, e a profundidade da cadeia é pequena.
+
+Outras decisões:
+
+- **Duas passadas.** A primeira declara só as assinaturas das funções no
+  escopo 0. A segunda analisa os corpos. Assim uma função pode chamar outra que
+  aparece depois no arquivo (recursão indireta).
+- **Funções são buscadas só no escopo 0.** Uma variável local com o nome de uma
+  função não impede a chamada dessa função.
+- **Em `inteiro x = x + 1;`** a expressão é analisada antes de declarar o novo
+  `x`, então o `x` da direita é o de fora.
+- **Retorno em todos os caminhos** é decidido pela estrutura: um bloco garante
+  retorno se tem um `retorne`, um bloco interno que garante, ou um `se` com
+  `senao` em que os dois lados garantem. `enquanto` nunca garante, porque a
+  condição não é avaliada.
+- O analisador grava em cada nó da árvore o tipo da expressão
+  (`extra['tipo']`) e o símbolo do nome (`extra['simbolo']`). A Entrega 4 usa
+  esses dados para saber onde converter `inteiro` em `real` e qual `x` cada uso
+  significa.
