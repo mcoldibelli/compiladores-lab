@@ -182,3 +182,58 @@ Os erros léxicos, e para onde cada um aponta:
 | real sem dígito depois do ponto | `3.` | o `.` |
 | real sem dígito antes do ponto | `.5` | o `.` |
 | caractere fora da linguagem | `@`, `!` sozinho, `ç` | o próprio caractere |
+
+### Entrega 2: gramática
+
+O analisador sintático (`mplc/sintatico.py`) é uma descida recursiva escrita à
+mão. Cada regra abaixo é um método da classe `Parser` com o mesmo nome. Os
+terminais estão entre aspas; `{ x }` é zero ou mais vezes, `[ x ]` é opcional.
+
+```ebnf
+programa       = { funcao } FIM_ARQUIVO ;
+funcao         = "funcao" ( tipo | "vazio" ) ID "(" [ parametro { "," parametro } ] ")" bloco ;
+parametro      = tipo ID ;
+tipo           = "inteiro" | "real" | "logico" | "texto" ;
+bloco          = "{" { comando } "}" ;
+
+comando        = tipo ID [ "=" expressao ] ";"                 (* declaracao *)
+               | ID "=" expressao ";"                          (* atribuicao *)
+               | chamada ";"                                   (* chamada como comando *)
+               | "se" condicao bloco [ "senao" bloco ]
+               | "enquanto" condicao bloco
+               | "escreva" "(" expressao ")" ";"
+               | "retorne" [ expressao ] ";"
+               | bloco ;
+condicao       = "(" expressao ")" ;
+
+expressao      = ou ;
+ou             = e { "ou" e } ;
+e              = igualdade { "e" igualdade } ;
+igualdade      = relacional { ( "==" | "!=" ) relacional } ;
+relacional     = aditiva { ( "<" | "<=" | ">" | ">=" ) aditiva } ;
+aditiva        = multiplicativa { ( "+" | "-" ) multiplicativa } ;
+multiplicativa = unaria { ( "*" | "/" | "%" ) unaria } ;
+unaria         = ( "nao" | "-" ) unaria | primaria ;
+primaria       = INTEIRO | REAL | LOGICO | TEXTO
+               | chamada | ID
+               | "(" expressao ")" ;
+chamada        = ID "(" [ expressao { "," expressao } ] ")" ;
+```
+
+**Como a precedência está codificada:** cada nível de precedência é uma regra,
+e cada regra só chama a regra do nível seguinte, mais forte. Por isso um
+operador mais forte sempre fica mais fundo na árvore: em `1 + 2 * 3`, o `*` é
+montado dentro de `multiplicativa`, antes de `aditiva` montar o `+`.
+
+**Como a associatividade está codificada:** a repetição `{ ... }` dos níveis
+binários é um laço (`binario_esquerda`) em que o nó já montado vira o filho da
+esquerda do próximo. Por isso `10 - 4 - 3` fica `(10 - 4) - 3`. A regra
+`unaria` chama a si mesma à direita, então `nao` e o `-` unário associam à
+direita.
+
+**Como o parser escolhe o comando:** pelo primeiro token. Só o `ID` precisa
+olhar um token a mais: `ID "("` é chamada, e qualquer outro é atribuição.
+
+**Onde fica o erro sintático:** no token que apareceu no lugar do esperado.
+Faltando o `;` no fim de uma linha, o erro fica no primeiro token da linha
+seguinte.
