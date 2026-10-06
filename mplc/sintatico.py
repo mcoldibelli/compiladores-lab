@@ -229,7 +229,7 @@ class Parser:
                 valor = f'{float(tok.lexema):.6f}'
             else:
                 valor = tok.lexema
-            return No(f'literal {tipo} {valor}', [], tok.linha, tok.coluna, tipo=tipo)
+            return No(f'literal {tipo} {valor}', [], tok.linha, tok.coluna, tipo=tipo, lexema=tok.lexema)
         if tok.tipo == 'ID':
             if self.seguinte().tipo == 'ABRE_PAR':
                 return self.chamada()

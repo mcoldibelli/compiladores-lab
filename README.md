@@ -3,6 +3,10 @@
 Trabalho semestral de **Compiladores** — Ciência da Computação, UNISAGRADO.
 Prof. Luiz Ricardo Mantovani da Silva · 2026-2
 
+> A documentação do nosso compilador (tabela de tokens, gramática, escopos e
+> conjunto de instruções da VM) está na seção [Nosso compilador](#nosso-compilador),
+> no fim deste arquivo.
+
 Cada grupo escreve um **compilador completo** para a MPL, uma linguagem
 pequena de palavras-chave em português. O compilador de vocês vai ler um
 programa em `.mpl`, atravessar as quatro fases da disciplina e produzir um
@@ -272,3 +276,51 @@ Outras decisões:
   (`extra['tipo']`) e o símbolo do nome (`extra['simbolo']`). A Entrega 4 usa
   esses dados para saber onde converter `inteiro` em `real` e qual `x` cada uso
   significa.
+
+### Entrega 4: código intermediário, bytecode e máquina virtual
+
+O caminho de um programa: a árvore anotada pela E3 vira **código de três
+endereços** (`mplc/intermediario.py`, visto com `--ir`). Cada instrução desse
+código vira algumas instruções de **pilha** (`mplc/gerador.py`), gravadas no
+`.mplb`. A **VM** (`mplc/vm.py`) lê o `.mplb` e executa.
+
+**Código de três endereços.** No máximo um operador por linha:
+`x = a op b`, `x = op a`, `x = real a` (a conversão de `inteiro` para `real`,
+sempre explícita), `x = a`, `seFalso a desvie L`, `desvie L`,
+`[x =] chama f a, b`, `retorne [a]`, `escreva a`. Os temporários se chamam
+`$t0`, `$t1`... e uma variável que sombreia outra de mesmo nome na mesma função
+vira `x#2`, `x#3`. `$` e `#` não existem num identificador da MPL, então esses
+nomes nunca colidem com os do programa.
+
+**O `.mplb`.** Texto. `funcao <nome> <parâmetros>` abre uma função, `fim`
+fecha, `L0:` é um rótulo. Cada instrução tem antes o número da linha do fonte,
+que a VM usa nos erros de execução.
+
+**Conjunto de instruções da VM.** "Topo" é o último valor da pilha de operandos.
+
+| Instrução | O que faz com a pilha |
+|---|---|
+| `EMPILHE c` | empilha a constante `c` (inteiro, real, `verdadeiro`/`falso` ou `"texto"`) |
+| `CARREGUE x` | empilha o valor da variável local `x` |
+| `GUARDE x` | desempilha o topo e guarda na variável local `x` |
+| `SOME` `SUBTRAIA` `MULTIPLIQUE` | desempilha `b`, depois `a`; empilha `a + b`, `a - b`, `a * b` (`SOME` também junta dois textos) |
+| `DIVIDA` | desempilha `b` e `a`; empilha `a / b`. Dois inteiros: trunca em direção a zero. `b` zero: erro de execução |
+| `RESTO` | desempilha `b` e `a`; empilha o resto com o sinal de `a`. `b` zero: erro de execução |
+| `IGUAL` `DIFERENTE` | desempilha `b` e `a`; empilha `a == b`, `a != b` |
+| `MENOR` `MENOR_IGUAL` `MAIOR` `MAIOR_IGUAL` | desempilha `b` e `a`; empilha `a < b`, `a <= b`, `a > b`, `a >= b` |
+| `E` `OU` | desempilha `b` e `a`; empilha `a e b`, `a ou b` (os dois lados já foram calculados: sem curto-circuito) |
+| `NAO` | troca o topo pelo seu contrário lógico |
+| `NEGUE` | troca o topo por `-topo` |
+| `REAL` | troca o topo (inteiro) pelo mesmo valor como real |
+| `DESVIE L` | não mexe na pilha; continua no rótulo `L` |
+| `SE_FALSO L` | desempilha o topo; se for `falso`, continua no rótulo `L` |
+| `CHAME f n` | desempilha `n` argumentos, cria um registro de ativação novo para `f` com eles nos parâmetros, e começa `f` |
+| `RETORNE` | apaga o registro de ativação atual e volta para quem chamou. Se a função devolve valor, ele já está no topo |
+| `ESCREVA` | desempilha o topo e imprime, no formato da seção 4.5 da especificação |
+
+**Registro de ativação.** Cada `CHAME` cria um registro novo com os locais
+**só daquela chamada** (um dicionário) e a posição da próxima instrução. Quem
+chamou fica guardado numa pilha de registros e volta no `RETORNE`. Por isso a
+recursão funciona: cada `fatorial(n)` tem o seu próprio `n`. A VM é um laço,
+e não usa a recursão do Python. Mais de 100 000 chamadas abertas ao mesmo tempo
+é estouro de pilha, um erro de execução na linha da chamada.
